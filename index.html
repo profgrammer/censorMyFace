@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <head>
+        <title>StackML Assignment: Censor my face</title>
+        <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+        <script src="https://stackml.com/library-js/stackml.min.js"></script>
+        <link href="https://fonts.googleapis.com/css?family=Signika&display=swap" rel="stylesheet">
+    </head>
+
+<body style="font-family: 'Signika'">
+<h1>Censor My Face!</h1>
+<input type="file" name="fileSelect" id="fileSelect" accept="image/*">
+<br><br>
+<img id="img">
+<canvas id="myCanvas">Your browser does not support the HTML5 canvas tag.</canvas>
+<script>
+    $("#fileSelect").change(async function() {
+        await readURL(this);
+        await callStackML();
+    })
+
+    async function readURL(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            $('#img').attr('src', e.target.result);
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+    async function callStackML() {
+        //provide the access key
+        await stackml.init({'accessKeyId': '8d028bed4b64503a7858d9f46d48998c'});
+
+        //load the model
+        const model = await stackml.faceDetection(()=> console.log('model loaded.'));
+
+        const model2 = await stackml.faceExpression();
+
+        model2.detect(document.getElementById('img'), async function(err, results) {
+            if(err) console.log(err);
+            console.log(results);
+            var c = document.getElementById('myCanvas');
+            console.log(document.getElementById('img').height);
+            c.width = document.getElementById('img').width;
+            c.height = document.getElementById('img').height;
+            var ctx = c.getContext('2d');
+            ctx.drawImage(document.getElementById('img'),10,10);
+            var images = {
+                angry: 'angry.png',
+                surprised: 'surprised.png',
+                happy: 'happy.png',
+                sad: 'sad.png',
+                disgusted: 'disgusted.png',
+                fearful: 'fearful.png',
+                neutral: 'neutral.png'
+            };
+            
+            const loadImage = url => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`load ${url} fail`));
+                img.src = url;
+            });
+            };
+            results.outputs.forEach((result, i) => {
+                var maxProbability = Math.max.apply(Math, result.expressions.map(function(o) {return o.probability;}));
+                var expression = result.expressions.find(function(o){return o.probability == maxProbability});
+                
+                loadImage(images[expression.expression]).then(img => ctx.drawImage(img, result.detection.box.x, result.detection.box.y, result.detection.box.width, result.detection.box.height));
+            });
+        });
+    }
+</script>
+</body>
+</html>
